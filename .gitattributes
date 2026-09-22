@@ -1,0 +1,18 @@
+# Line-ending policy.
+#
+# This repo targets Windows, so scripts that Windows executes get CRLF while
+# everything else stays LF in the repository. Without this, a clone with
+# core.autocrlf=false would check out .cmd files with LF endings, which
+# cmd.exe handles inconsistently.
+
+* text=auto eol=lf
+
+# Windows executables: CRLF on checkout, LF in the repository.
+*.ps1   text eol=crlf
+*.cmd   text eol=crlf
+*.bat   text eol=crlf
+
+# Never touch these.
+*.dpapi binary
+*.png   binary
+*.jpg   binary
