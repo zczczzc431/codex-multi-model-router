@@ -1,0 +1,126 @@
+{
+  "modelDefaults": {
+    "default_reasoning_level": "high",
+    "supported_reasoning_levels": [
+      {
+        "effort": "low",
+        "description": "Fast responses with lighter reasoning"
+      },
+      {
+        "effort": "medium",
+        "description": "Balances speed and reasoning depth for everyday tasks"
+      },
+      {
+        "effort": "high",
+        "description": "Greater reasoning depth for complex problems"
+      }
+    ],
+    "shell_type": "unified_exec",
+    "visibility": "list",
+    "supported_in_api": true,
+    "additional_speed_tiers": [],
+    "service_tiers": [],
+    "availability_nux": null,
+    "upgrade": null,
+    "model_messages": null,
+    "include_skills_usage_instructions": true,
+    "include_plugin_usage_instructions": true,
+    "include_apps_usage_instructions": true,
+    "default_reasoning_summary": "none",
+    "support_verbosity": false,
+    "default_verbosity": "medium",
+    "apply_patch_tool_type": "freeform",
+    "web_search_tool_type": "text",
+    "truncation_policy": {
+      "limit": 10000,
+      "mode": "tokens"
+    },
+    "supports_image_detail_original": false,
+    "comp_hash": "3000",
+    "effective_context_window_percent": 95,
+    "experimental_supported_tools": [],
+    "input_modalities": [
+      "text"
+    ],
+    "supports_search_tool": false,
+    "supports_experimental_context": false,
+    "use_responses_lite": false,
+    "node_repl_auto_review_required": false,
+    "node_repl_disabled": false,
+    "tool_mode": "code_mode_only",
+    "multi_agent_version": "v1",
+    "supports_parallel_tool_calls": true,
+    "prefer_websockets": false,
+    "reasoning_summary_format": "experimental",
+    "base_instructions": "You are Codex, a coding assistant. Help the user complete their work accurately and clearly."
+  },
+  "models": [
+    {
+      "slug": "wb-deepseek-flash",
+      "display_name": "DeepSeek-Flash（WorkBuddy）",
+      "description": "DeepSeek-V4.1-Flash via the WorkBuddy (CodeBuddy) channel. Charged against your WorkBuddy quota. Text input only.",
+      "priority": 30,
+      "context_window": 300000,
+      "max_context_window": 1000000,
+      "router": {
+        "upstream_model": "deepseek-v4.1-flash"
+      }
+    },
+    {
+      "slug": "wb-deepseek-pro",
+      "display_name": "DeepSeek-Pro（WorkBuddy）",
+      "description": "DeepSeek-V4-Pro via the WorkBuddy (CodeBuddy) channel. Charged against your WorkBuddy quota. Text input only.",
+      "priority": 31,
+      "context_window": 300000,
+      "max_context_window": 1000000,
+      "router": {
+        "upstream_model": "deepseek-v4-pro"
+      }
+    },
+    {
+      "slug": "wb-glm",
+      "display_name": "GLM-5.1（WorkBuddy）",
+      "description": "GLM-5.1 (Zhipu) via the WorkBuddy (CodeBuddy) channel. Charged against your WorkBuddy quota. Text input only.",
+      "priority": 32,
+      "context_window": 200000,
+      "max_context_window": 200000,
+      "router": {
+        "upstream_model": "glm-5.1"
+      }
+    },
+    {
+      "slug": "wb-kimi",
+      "display_name": "Kimi-K2.7（WorkBuddy）",
+      "description": "Kimi-K2.7-Code (Moonshot) via the WorkBuddy (CodeBuddy) channel. Charged against your WorkBuddy quota. Text input only.",
+      "priority": 33,
+      "context_window": 256000,
+      "max_context_window": 256000,
+      "router": {
+        "upstream_model": "kimi-k2.7"
+      }
+    },
+    {
+      "slug": "wb-minimax",
+      "display_name": "MiniMax-M2.7（WorkBuddy）",
+      "description": "MiniMax-M2.7 via the WorkBuddy (CodeBuddy) channel. Charged against your WorkBuddy quota. Text input only.",
+      "priority": 34,
+      "context_window": 200000,
+      "max_context_window": 200000,
+      "router": {
+        "upstream_model": "minimax-m2.7"
+      }
+    },
+    {
+      "slug": "wb-hunyuan",
+      "display_name": "混元-Hy3（WorkBuddy）",
+      "description": "Tencent Hunyuan Hy3 via the WorkBuddy (CodeBuddy) channel. Charged against your WorkBuddy quota. Text input only.",
+      "priority": 35,
+      "context_window": 200000,
+      "max_context_window": 200000,
+      "router": {
+        "upstream_model": "hy3"
+      }
+    }
+  ]
+}
+

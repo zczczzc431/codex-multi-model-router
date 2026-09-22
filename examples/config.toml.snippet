@@ -1,0 +1,18 @@
+# Append this to <codex home>/config.toml to route through the local server.
+#
+# <codex home> is normally %USERPROFILE%\.codex
+#
+# Keep a copy of your original config.toml first. Use forward slashes or
+# doubled backslashes inside the TOML string - a single backslash is an escape.
+
+model = "deepseek-flash"
+model_catalog_json = "<codex home>/router-models.json"
+model_provider = 'codex_router'
+
+[model_providers.codex_router]
+base_url = 'http://127.0.0.1:18763'
+name = 'GPT + DeepSeek'
+requires_openai_auth = true
+wire_api = 'responses'
+# Set to false only if your Codex build requires websockets for this provider.
+supports_websockets = false

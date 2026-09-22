@@ -1,0 +1,25 @@
+# Credentials - never commit these
+*.dpapi
+*.key
+.env
+.env.*
+secrets.json
+
+# Runtime state
+*.log
+*.log.1
+router-models.json
+router-models.last-good.json
+router-models*.bak
+codex-router-files.sha256
+codex-router-last-cli-version.txt
+router-body-dump.jsonl
+router-dump.enabled
+codebuddy-home/
+home/
+
+# Editor / OS
+.vscode/
+.idea/
+Thumbs.db
+desktop.ini
