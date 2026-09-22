@@ -1,5 +1,12 @@
 # codex-multi-model-router
 
+[![Release](https://img.shields.io/github/v/release/zczczzc431/codex-multi-model-router?label=release)](https://github.com/zczczzc431/codex-multi-model-router/releases)
+[![License](https://img.shields.io/github/license/zczczzc431/codex-multi-model-router)](LICENSE)
+[![Platform](https://img.shields.io/badge/platform-Windows-0078d4)](#requirements)
+[![Node](https://img.shields.io/badge/node-%3E%3D18-339933)](https://nodejs.org)
+
+**English** | [中文](README.zh-CN.md)
+
 Put DeepSeek, Kimi, GLM, Hunyuan and any OpenAI-compatible relay into Codex's
 own model picker, next to the GPT models you already have — and switch between
 them mid-task without restarting the app.
