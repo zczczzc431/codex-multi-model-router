@@ -52,12 +52,17 @@ trouble and have the least patience for debugging.
 
 ## 3. On Windows, closing an app does not kill its child processes
 
-The MCP bridge and the router run as `node.exe` children of `codex.exe`,
-which is itself a child of the desktop app. Killing the desktop app does **not**
-kill that tree.
+A `node.exe` MCP bridge runs as a child of `codex.exe`, which is itself a child
+of the desktop app. Killing the desktop app does **not** necessarily kill that
+tree.
 
-Consequence: if you edit the bridge or router code and then "restart the app",
-the old code may still be running and your change appears not to work.
+Consequence: if you edit the bridge code and then "restart the app", the old
+code may still be running and your change appears not to work.
+
+The router has a different shape, and it is worth being precise about it: it
+runs under the Scheduled Task supervisor, so it outlives the app entirely.
+Edited router files are therefore *not* reloaded by restarting the app — the
+launcher's fingerprint check is what reloads them.
 
 **What we do about it:** the restart path also closes the backend by matching
 `codex.exe` processes whose parent is the app (so a CLI session the user

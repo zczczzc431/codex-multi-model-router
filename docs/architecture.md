@@ -100,8 +100,9 @@ secret is written to disk or to the user's environment.
 - the fingerprint of `router.js`, the adapter, the sync script, or any
   provider config changed
 
-That last one exists because "I edited the code and restarted the app" is not
-enough on Windows — see lesson 3 in
+That last one exists because restarting the app does **not** reload the
+router: the router lives under the Scheduled Task, so it is the fingerprint
+check — not the app restart — that picks up an edited file. See lesson 3 in
 [lessons-learned.md](lessons-learned.md).
 
 ## State and paths

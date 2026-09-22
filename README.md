@@ -33,8 +33,9 @@ provider with a lot of models.
 The point is not "more models". It is **not losing your work when you switch**.
 
 Without this, trying a different model means editing `config.toml` and
-restarting Codex, which drops the conversation you were in the middle of.
-With this, the model picker just works, and switching keeps the task open.
+restarting Codex, which interrupts whatever the model was doing — and you
+cannot change models part-way through a task at all. With this, the model
+picker just works, and switching keeps the task open.
 
 The second reason is cost. Cheaper models are perfectly good at a lot of
 tasks. Having them one menu click away makes it practical to use them.
@@ -52,7 +53,7 @@ tasks. Having them one menu click away makes it practical to use them.
 
 - Windows (the credential storage and launcher scripts are Windows-specific)
 - Node.js 18+
-- Codex desktop, tested against `0.155.x`
+- Codex desktop, with its bundled `codex` CLI (tested on CLI `0.155.x`)
 
 ## Quickstart
 
@@ -75,9 +76,12 @@ Copy-Item .\examples\workbuddy-models.json $env:USERPROFILE\.codex\
 .\scripts\start-codex.cmd
 ```
 
-Use `start-codex.cmd restart` when you change router code: closing the desktop
-app does **not** kill the `codex.exe` backend that hosts the router, so edited
-code would otherwise never be reloaded.
+The router runs under the Scheduled Task supervisor, not under the app, so it
+keeps running when you close Codex. Edited router files are picked up
+automatically: the launcher compares a fingerprint of the running files and
+restarts the router whenever one of them changed. `start-codex.cmd restart` is
+for when the **app** needs to reconnect — it closes the app (plus any leftover
+`codex.exe` / bridge children) and opens it again.
 
 ## The part that actually matters: not bricking the app
 
@@ -99,8 +103,8 @@ on. The design that came out of it:
 | Startup repair of a `config.toml` that points at a dead local proxy | Third-party switchers rewriting your config |
 
 Read [docs/lessons-learned.md](docs/lessons-learned.md). It documents each of
-these as a concrete bug that was hit in practice, including two that were
-silently broken for a long time because the failure path was never exercised.
+these as a concrete bug that was hit in practice — including an escape hatch
+that had never once worked, precisely because nothing ever exercised it.
 
 ## Repository layout
 

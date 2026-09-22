@@ -81,11 +81,21 @@ config never parsed. Check the log for `catalog sync`.
 
 ## I edited router.js and nothing changed
 
-On Windows, closing the desktop app does not kill the `codex.exe` backend
-that hosts the router. Restart properly:
+The router runs under the Scheduled Task supervisor, not under the app. It is
+reloaded by the launcher's fingerprint check, so simply running the launcher
+again is enough:
 
 ```powershell
-.\scripts\start-codex.cmd restart
+.\scripts\start-codex.cmd
+```
+
+If the log still shows the old behaviour, confirm the router process actually
+restarted, and check that the file is in the fingerprint set (the router
+entry, the adapter, the sync script, and the provider configs):
+
+```powershell
+Get-Content $env:USERPROFILE\.codex\codex-router-files.sha256
+Get-Content $env:USERPROFILE\.codex\codex-model-router.log -Tail 20
 ```
 
 Verify the running code is actually new:

@@ -2,8 +2,15 @@
 #
 # <codex home> is normally %USERPROFILE%\.codex
 #
+# IMPORTANT: replace the literal <codex home> below with your real path before
+# pasting, or Codex will not find the model catalog. Example:
+#     model_catalog_json = "C:/Users/you/.codex/router-models.json"
+#
 # Keep a copy of your original config.toml first. Use forward slashes or
 # doubled backslashes inside the TOML string - a single backslash is an escape.
+#
+# The port below must match the router's. It defaults to 18763; if you set
+# CODEX_ROUTER_PORT, change base_url to match.
 
 model = "deepseek-flash"
 model_catalog_json = "<codex home>/router-models.json"

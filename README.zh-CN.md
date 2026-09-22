@@ -24,7 +24,8 @@ Codex 从目录文件读取模型列表，并把所有请求发给唯一一个 p
 重点不是"模型更多"，而是**切模型不丢手上的活**。
 
 没有它的时候，想换个模型就得改 `config.toml` 再重启 Codex，
-正在进行的对话就断了。有了它，模型菜单直接点，任务还开着。
+正在生成的回答会被打断；而且根本没法在一个任务中途换模型。
+有了它，模型菜单直接点，任务还开着。
 
 第二个理由是省钱。便宜模型在很多任务上完全够用，
 当它只差一次点击的时候，你才会真的去用。
@@ -33,7 +34,7 @@ Codex 从目录文件读取模型列表，并把所有请求发给唯一一个 p
 
 - Windows（密钥存储和启动脚本依赖 Windows）
 - Node.js 18+
-- Codex 桌面版，实测 `0.155.x`
+- Codex 桌面版及其自带的 `codex` CLI（实测 CLI `0.155.x`）
 
 ## 快速开始
 
@@ -56,8 +57,10 @@ Copy-Item .\examples\workbuddy-models.json $env:USERPROFILE\.codex\
 .\scripts\start-codex.cmd
 ```
 
-改过路由代码之后要用 `start-codex.cmd restart`：**关掉桌面应用不会杀掉承载路由的
-`codex.exe` 后端**，不这样做的话改的代码永远不会重新加载。
+路由跑在计划任务的守护进程下，不在应用里，所以关掉 Codex 它照样在跑。
+改了路由文件会被自动发现：启动器比对运行中文件的指纹，有变化就重启路由。
+`start-codex.cmd restart` 是给**应用需要重连**时用的——它会关掉应用
+（连同残留的 `codex.exe` / 桥接子进程）再重新打开。
 
 ## 真正要紧的部分：别把应用弄坏
 
@@ -79,7 +82,7 @@ Copy-Item .\examples\workbuddy-models.json $env:USERPROFILE\.codex\
 
 细节见 [docs/lessons-learned.md](docs/lessons-learned.md)（英文）。
 里面把 8 个坑写成了具体案例，
-包括两个**因为失败路径从没被跑过、所以长期静默坏着**的问题。
+包括一个**从没成功运行过一次的逃生脚本**——正因为没人跑过它。
 
 ## 目录结构
 
