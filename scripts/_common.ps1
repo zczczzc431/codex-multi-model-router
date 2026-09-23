@@ -153,15 +153,18 @@ $script:OfficialCatalog = Join-Path $CodexHome 'official-models.json'
     fresh instead: newest hashed directory, then PATH as a fallback.
 #>
 function Resolve-CodexExe {
-    $binRoot = Join-Path $env:LOCALAPPDATA 'OpenAI\Codex\bin'
-    try {
-        $newest = Get-ChildItem -LiteralPath $binRoot -Directory -ErrorAction Stop |
-            ForEach-Object { Join-Path $_.FullName 'codex.exe' } |
-            Where-Object { Test-Path -LiteralPath $_ } |
-            Sort-Object { (Get-Item -LiteralPath $_).LastWriteTime } -Descending |
-            Select-Object -First 1
-        if ($newest) { return $newest }
-    } catch { }
+    $binRoot = $null
+    if ($env:LOCALAPPDATA) { $binRoot = Join-Path $env:LOCALAPPDATA 'OpenAI\Codex\bin' }
+    if ($binRoot) {
+        try {
+            $newest = Get-ChildItem -LiteralPath $binRoot -Directory -ErrorAction Stop |
+                ForEach-Object { Join-Path $_.FullName 'codex.exe' } |
+                Where-Object { Test-Path -LiteralPath $_ } |
+                Sort-Object { (Get-Item -LiteralPath $_).LastWriteTime } -Descending |
+                Select-Object -First 1
+            if ($newest) { return $newest }
+        } catch { }
+    }
     $cmd = Get-Command codex -ErrorAction SilentlyContinue
     if ($cmd) { return $cmd.Source }
     return $null
@@ -176,30 +179,74 @@ function Resolve-CodexExe {
     models existed the last time it did - and models released afterwards never
     reach the menu. It is not enough to notice a Codex upgrade.
 
-    The fetch runs the CLI's model-catalog dump inside a throwaway CODEX_HOME seeded
-    with a copy of auth.json, so it is unaffected by the catalog override.
-    Returns the catalog path, or $null if the fetch failed - callers then fall
-    back to the on-disk cache.
+    The fetch runs the CLI's model-catalog dump inside a throwaway CODEX_HOME
+    seeded with a copy of auth.json, so it is unaffected by the catalog
+    override. Returns the catalog path, or $null if the fetch failed - callers
+    then fall back to the on-disk cache.
+
+    Output is captured through FILES, never through a pipeline. Windows
+    PowerShell decodes a native command's stdout with [Console]::OutputEncoding,
+    which is the ANSI codepage (GBK on a Chinese system) when this runs from a
+    Scheduled Task. The CLI emits UTF-8, so a pipeline capture mangles it - a
+    GBK lead byte consumes the next character, and ConvertFrom-Json then reports
+    "Invalid object passed in, ':' or '}' expected" on perfectly valid JSON.
+    That is the same class of failure as lesson 4, one layer further out.
+    Redirecting to a file skips the decode entirely; the file is read back as
+    UTF-8.
 #>
 function Update-OfficialModelCatalog {
     $codexExe = Resolve-CodexExe
-    if (-not $codexExe) { return $null }
+    if (-not $codexExe) {
+        Write-RouterLog 'official fetch skipped: no codex.exe found'
+        return $null
+    }
     $authFile = Join-Path $CodexHome 'auth.json'
-    if (-not (Test-Path -LiteralPath $authFile)) { return $null }
+    if (-not (Test-Path -LiteralPath $authFile)) {
+        Write-RouterLog "official fetch skipped: auth.json missing at $authFile"
+        return $null
+    }
 
-    $probeHome = Join-Path ([IO.Path]::GetTempPath()) ('codex-catalog-' + [Guid]::NewGuid().ToString('N'))
+    $tempRoot = [IO.Path]::GetTempPath()
+    $stamp = [Guid]::NewGuid().ToString('N')
+    $probeHome = Join-Path $tempRoot ('codex-catalog-' + $stamp)
+    $outFile = Join-Path $tempRoot ('codex-fetch-out-' + $stamp + '.json')
+    $errFile = Join-Path $tempRoot ('codex-fetch-err-' + $stamp + '.log')
     $previousCodexHome = $env:CODEX_HOME
     try {
         New-Item -ItemType Directory -Force -Path $probeHome | Out-Null
         Copy-Item -LiteralPath $authFile -Destination (Join-Path $probeHome 'auth.json') -Force
         $env:CODEX_HOME = $probeHome
-        $raw = & $codexExe debug models 2>$null | Out-String
-        if ($LASTEXITCODE -ne 0 -or -not $raw) { return $null }
+
+        $proc = Start-Process -FilePath $codexExe -ArgumentList @('debug', 'models') `
+            -NoNewWindow -Wait -PassThru -RedirectStandardOutput $outFile -RedirectStandardError $errFile
+        if ($proc.ExitCode -ne 0) {
+            $detail = ''
+            if (Test-Path -LiteralPath $errFile) {
+                $detail = (([IO.File]::ReadAllText($errFile) -replace "\r?\n", ' ').Trim())
+                if ($detail.Length -gt 200) { $detail = $detail.Substring(0, 200) }
+            }
+            Write-RouterLog "official fetch failed: exit=$($proc.ExitCode) stderr=$detail"
+            return $null
+        }
+        if (-not (Test-Path -LiteralPath $outFile)) {
+            Write-RouterLog "official fetch failed: no output at $outFile"
+            return $null
+        }
+        $raw = [IO.File]::ReadAllText($outFile)
+        if (-not $raw) {
+            Write-RouterLog 'official fetch failed: empty output'
+            return $null
+        }
         $parsed = $raw | ConvertFrom-Json
-        if (-not $parsed.models -or @($parsed.models).Count -eq 0) { return $null }
+        if (-not $parsed.models -or @($parsed.models).Count -eq 0) {
+            Write-RouterLog 'official fetch failed: parsed catalog has no models'
+            return $null
+        }
         [IO.File]::WriteAllText($OfficialCatalog, $raw, (New-Object System.Text.UTF8Encoding($false)))
+        Write-RouterLog "official fetch ok: $(@($parsed.models).Count) models"
         return $OfficialCatalog
     } catch {
+        Write-RouterLog "official fetch threw: $($_.Exception.Message)"
         return $null
     } finally {
         $env:CODEX_HOME = $previousCodexHome
@@ -207,6 +254,8 @@ function Update-OfficialModelCatalog {
         try {
             [IO.File]::Delete((Join-Path $probeHome 'auth.json'))
             [IO.Directory]::Delete($probeHome, $true)
+            [IO.File]::Delete($outFile)
+            [IO.File]::Delete($errFile)
         } catch { }
     }
 }

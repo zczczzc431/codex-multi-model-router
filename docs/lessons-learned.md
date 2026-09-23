@@ -234,6 +234,52 @@ principle as resolving `CODEX_HOME` at runtime instead of baking in
 a cache, not as configuration. Hash-suffixed and version-managed paths are
 *expected* to move.
 
+## 11. Capturing a process's output also decides how it gets decoded
+
+The official-catalog fetch above worked perfectly when run by hand and failed
+silently in the Scheduled Task. Same script, same CLI, same file.
+
+Measured symptoms:
+
+- the menu quietly reverted to the stale cache
+- the new fetch had been written to log *why* — `official fetch threw: Invalid
+  object passed in, ':' or '}' expected. (10335)` — but only after the first
+  version was fixed to stop failing silently (see below)
+- running the identical command from an interactive shell produced 9 models and
+  parsed fine
+
+The cause is in the capture, not the command. Windows PowerShell decodes a
+native command's stdout using `[Console]::OutputEncoding`. Interactive shell:
+UTF-8. Scheduled Task: the ANSI codepage, GBK here. The CLI emits UTF-8, so GBK
+decoding mangles it, a lead byte consumes the following character, and
+`ConvertFrom-Json` rejects valid JSON.
+
+Control experiment, both arms in the same PowerShell 5.1 with
+`[Console]::OutputEncoding = [Text.Encoding]::GetEncoding(936)`:
+
+| Capture | Result |
+|---|---|
+| `& $exe debug models \| Out-String` | parse fails at the same offset as the log (10335) |
+| `Start-Process -RedirectStandardOutput $file`, then `[IO.File]::ReadAllText` | parses, 9 models |
+
+That is lesson 4 one layer out: lesson 4 was reading *files* with the wrong
+decoder, this is reading *process output* with the wrong decoder. The fix is
+the same shape — bypass PowerShell's decoder, read the bytes as UTF-8.
+
+**Second failure worth naming:** the fetch failure was silent. The helper
+returned `$null`, the caller fell back to the cache, and the menu just looked
+old. Nothing said "the fetch failed". A fallback that does not say it ran is
+indistinguishable from the feature not existing. Every failure path in the
+fetch now logs its reason.
+
+**Generalisation:** when you capture another process's output you are also
+choosing its encoding, and the default comes from your host, not from the
+program. If the two disagree, you get corruption, not an error. Prefer handing
+the child a file or a pipe you control.
+
+**And:** when a fallback triggers, log it. Silent degradation trains everyone
+to distrust the feature.
+
 ## Checklist distilled
 
 If you are doing the same kind of thing:
@@ -256,3 +302,6 @@ If you are doing the same kind of thing:
 - [ ] Never store another app's hashed install path. Resolve it when you use it.
 - [ ] Test the *empty* case of a config, not just a populated one: an empty
       result must fall back, not silently wipe the thing it replaced.
+- [ ] Never capture another process's output through a PowerShell pipeline when
+      the payload is UTF-8 and the host may not be: redirect to a file instead.
+- [ ] Log every fallback the moment it triggers, with the reason it triggered.

@@ -110,6 +110,20 @@ and the sync fell back to the stale cache — which is why the menu looks
 unchanged. The usual causes are a missing `auth.json` in the Codex home, or
 `codex.exe` not being found. Check the log for `catalog sync`.
 
+Every fetch failure logs its own reason, so start from these lines:
+
+```powershell
+Select-String -Path $env:USERPROFILE\.codex\codex-model-router.log -Pattern 'official fetch|falling back|catalog sync'
+```
+
+| Log line | Meaning |
+|---|---|
+| `official fetch ok: N models` | the fetch worked; the menu is current |
+| `official fetch skipped: ...` | no `codex.exe`, or no `auth.json` in the Codex home |
+| `official fetch failed: exit=...` | the CLI exited non-zero; its stderr is on the same line |
+| `official fetch threw: Invalid object passed in` | decoding problem — the running build predates the fix in [lesson 11](lessons-learned.md) |
+| `falling back to the on-disk cache` | the fetch failed and the previous cache was used |
+
 ## I edited router.js and nothing changed
 
 The router runs under the Scheduled Task supervisor, not under the app. It is

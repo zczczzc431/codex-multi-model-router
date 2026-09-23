@@ -82,7 +82,7 @@ Copy-Item .\examples\workbuddy-models.json $env:USERPROFILE\.codex\
 | 每次启动重建模型目录 | 菜单悄悄停止更新新模型 |
 
 细节见 [docs/lessons-learned.md](docs/lessons-learned.md)（英文）。
-里面把 10 个坑写成了具体案例，
+里面把 11 个坑写成了具体案例，
 包括一个**从没成功运行过一次的逃生脚本**——正因为没人跑过它。
 
 ## 目录结构
