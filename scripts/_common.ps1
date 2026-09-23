@@ -246,7 +246,10 @@ function Update-OfficialModelCatalog {
         Write-RouterLog "official fetch ok: $(@($parsed.models).Count) models"
         return $OfficialCatalog
     } catch {
-        Write-RouterLog "official fetch threw: $($_.Exception.Message)"
+        # The message can embed the whole catalog; keep the log readable.
+        $msg = $_.Exception.Message
+        if ($msg.Length -gt 200) { $msg = $msg.Substring(0, 200) }
+        Write-RouterLog "official fetch threw: $msg"
         return $null
     } finally {
         $env:CODEX_HOME = $previousCodexHome
