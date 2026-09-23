@@ -3,13 +3,18 @@
         Make sure the router is running and healthy. Repairs common breakage.
 
     .DESCRIPTION
-        Three jobs, in order:
+        Four jobs, in order:
 
           1. Detect a config.toml that points at a dead local proxy (some
              provider switchers rewrite it) and put codex_router back.
-          2. Restart the router task when the router is unhealthy, the Codex
+          2. Refresh the model catalog. The current official model list is
+             re-fetched first, because Codex stops refreshing its own cache
+             while model_catalog_json is set - see lesson 9 in
+             docs/lessons-learned.md. Without this, models released after
+             setup never reach the menu.
+          3. Restart the router task when the router is unhealthy, the Codex
              CLI version changed, or the router files changed on disk.
-          3. Wait for /health. If it never comes up, fall back to the built-in
+          4. Wait for /health. If it never comes up, fall back to the built-in
              provider so the app stays usable instead of pointing at a dead
              port.
 
@@ -68,7 +73,16 @@ try {
     Write-RouterLog "provider repair skipped: $($_.Exception.Message)"
 }
 
-# --- 2. restart the task when needed --------------------------------------
+# --- 2. refresh the model menu --------------------------------------------
+# Best effort: a stale menu is far better than a launcher that refuses to
+# start, so every failure here is logged and then ignored.
+try {
+    Write-RouterLog "catalog sync: $(Sync-ModelCatalog)"
+} catch {
+    Write-RouterLog "catalog sync skipped: $($_.Exception.Message)"
+}
+
+# --- 3. restart the task when needed --------------------------------------
 $parts = @($RouterEntry, $RelayConfig, $SyncScript, $WorkbuddyAdapter, $WorkbuddyConfig, $DeepseekConfig)
 function Get-RouterFingerprint {
     $hashes = foreach ($part in $parts) {
@@ -106,7 +120,7 @@ if (-not $healthy -or $versionChanged -or $filesChanged) {
     Start-ScheduledTask -TaskName $task.TaskName
 }
 
-# --- 3. wait for health, else fall back -----------------------------------
+# --- 4. wait for health, else fall back -----------------------------------
 $ready = $false
 for ($i = 0; $i -lt 60; $i++) {
     if (Test-RouterUp) { $ready = $true; break }

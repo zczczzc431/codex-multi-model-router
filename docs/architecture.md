@@ -24,7 +24,7 @@ wire_api = 'responses'
 The catalog is the model menu. It is generated, not hand-written:
 
 ```
-models_cache.json   (Codex's own model list, refreshed by Codex)
+codex debug models ──▶ official-models.json   (fetched on every launch)
         +
 deepseek-models.json / relay-models.json / workbuddy-models.json
         │
@@ -37,6 +37,16 @@ deepseek-models.json / relay-models.json / workbuddy-models.json
 
 Generated entries inherit the *shape* of a real Codex model entry, so the
 picker renders them like anything else.
+
+The official list has to be fetched explicitly. Codex only rewrites its own
+`models_cache.json` when *it* fetches the remote catalog, and once
+`model_catalog_json` points at our catalog that fetch stops happening. The
+cache then freezes at whatever models existed the last time it did, and models
+released after setup never appear in the menu — so the launcher asks for the
+current list itself. See lesson 9 in [lessons-learned.md](lessons-learned.md).
+
+If that fetch fails, `models_cache.json` is used instead, so an offline
+machine keeps the menu it already had rather than coming up empty.
 
 ## Request flow
 
@@ -105,6 +115,11 @@ router: the router lives under the Scheduled Task, so it is the fingerprint
 check — not the app restart — that picks up an edited file. See lesson 3 in
 [lessons-learned.md](lessons-learned.md).
 
+The same script regenerates `router-models.json` on every launch, before the
+restart check. That ordering matters: the launcher runs, refreshes the menu,
+and only then starts the app, so the app reads a catalog that is already
+current.
+
 ## State and paths
 
 Everything lives in the Codex home:
@@ -113,6 +128,7 @@ Everything lives in the Codex home:
 |---|---|
 | `router-models.json` | generated catalog (the model menu) |
 | `router-models.last-good.json` | previous catalog, written before each overwrite |
+| `official-models.json` | last successful fetch of Codex's own model list |
 | `relay-models.json`, `workbuddy-models.json`, `deepseek-models.json` | provider definitions |
 | `codex-model-router.log` | router + supervisor log |
 | `codex-router-files.sha256` | fingerprint of the running files |

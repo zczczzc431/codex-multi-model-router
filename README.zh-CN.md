@@ -79,9 +79,10 @@ Copy-Item .\examples\workbuddy-models.json $env:USERPROFILE\.codex\
 | 路由起不来时自动切回内置 provider | 被锁在门外 |
 | `Use-OfficialProvider.ps1` 逃生脚本 | 随时手动恢复 |
 | 启动时修复指向死端口的 `config.toml` | 第三方切换工具改写你的配置 |
+| 每次启动重建模型目录 | 菜单悄悄停止更新新模型 |
 
 细节见 [docs/lessons-learned.md](docs/lessons-learned.md)（英文）。
-里面把 8 个坑写成了具体案例，
+里面把 10 个坑写成了具体案例，
 包括一个**从没成功运行过一次的逃生脚本**——正因为没人跑过它。
 
 ## 目录结构
@@ -95,6 +96,7 @@ Copy-Item .\examples\workbuddy-models.json $env:USERPROFILE\.codex\
       _common.ps1               共享路径与工具函数
       Start-ModelRouter.ps1     守护进程（计划任务跑这个）
       Activate-ModelRouter.ps1  健康检查 / 重启 / 修复 / 回退
+      Sync-ModelCatalog.ps1     只重建模型菜单，不重启任何东西
       Start-Codex-WithModels.ps1 启动器，含完全重启
       Use-OfficialProvider.ps1  逃生：切回内置 provider
       Set-*.ps1, Save-*.ps1     密钥录入

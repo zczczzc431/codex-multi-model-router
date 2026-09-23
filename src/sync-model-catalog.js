@@ -68,6 +68,16 @@ if (!Array.isArray(catalog.models)) {
  *
  * The `router` block is routing metadata for the router process only; Codex
  * must never see it, so it is stripped here.
+ *
+ * An entry is usable when it has a slug and - if it carries a `router` block
+ * at all - that block names an upstream model. DeepSeek entries deliberately
+ * have no `router` block, because router.js maps their slugs to endpoints
+ * itself; demanding routing metadata from every provider would silently drop
+ * the entire DeepSeek group from the menu.
+ *
+ * Returns null when the file is unreadable OR yields no usable entries, so the
+ * caller can fall back to the catalog. Returning an empty array here would be
+ * truthy, which would defeat that fallback instead.
  */
 function loadProviderModels(file) {
   const parsed = readJsonIfPresent(file);
@@ -76,10 +86,11 @@ function loadProviderModels(file) {
   const models = [];
   for (const model of parsed.models ?? []) {
     const { router: routing, ...rest } = model;
-    if (!rest.slug || !routing?.upstream_model) continue;
+    if (!rest.slug) continue;
+    if (routing && !routing.upstream_model) continue;
     models.push({ ...defaults, ...rest });
   }
-  return models;
+  return models.length > 0 ? models : null;
 }
 
 /**

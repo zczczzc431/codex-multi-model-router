@@ -140,3 +140,137 @@ function Read-JsonFile {
     param([Parameter(Mandatory)][string]$Path)
     return ([IO.File]::ReadAllText($Path) | ConvertFrom-Json)
 }
+
+# --- official model catalog ------------------------------------------------
+$script:OfficialCatalog = Join-Path $CodexHome 'official-models.json'
+
+<#
+    Find the codex.exe that belongs to the installed desktop app.
+
+    Every Codex update installs the CLI into a NEW hashed directory
+    (<localappdata>\OpenAI\Codex\bin\<hash>\codex.exe) and deletes the old
+    one, so any remembered path goes stale on the next update. Resolve it
+    fresh instead: newest hashed directory, then PATH as a fallback.
+#>
+function Resolve-CodexExe {
+    $binRoot = Join-Path $env:LOCALAPPDATA 'OpenAI\Codex\bin'
+    try {
+        $newest = Get-ChildItem -LiteralPath $binRoot -Directory -ErrorAction Stop |
+            ForEach-Object { Join-Path $_.FullName 'codex.exe' } |
+            Where-Object { Test-Path -LiteralPath $_ } |
+            Sort-Object { (Get-Item -LiteralPath $_).LastWriteTime } -Descending |
+            Select-Object -First 1
+        if ($newest) { return $newest }
+    } catch { }
+    $cmd = Get-Command codex -ErrorAction SilentlyContinue
+    if ($cmd) { return $cmd.Source }
+    return $null
+}
+
+<#
+    Fetch the CURRENT official model list into $OfficialCatalog.
+
+    Codex only rewrites its own models_cache.json when it fetches the remote
+    catalog itself. While model_catalog_json points at our generated catalog
+    that fetch does not happen, so models_cache.json freezes at whatever
+    models existed the last time it did - and models released afterwards never
+    reach the menu. It is not enough to notice a Codex upgrade.
+
+    The fetch runs the CLI's model-catalog dump inside a throwaway CODEX_HOME seeded
+    with a copy of auth.json, so it is unaffected by the catalog override.
+    Returns the catalog path, or $null if the fetch failed - callers then fall
+    back to the on-disk cache.
+#>
+function Update-OfficialModelCatalog {
+    $codexExe = Resolve-CodexExe
+    if (-not $codexExe) { return $null }
+    $authFile = Join-Path $CodexHome 'auth.json'
+    if (-not (Test-Path -LiteralPath $authFile)) { return $null }
+
+    $probeHome = Join-Path ([IO.Path]::GetTempPath()) ('codex-catalog-' + [Guid]::NewGuid().ToString('N'))
+    $previousCodexHome = $env:CODEX_HOME
+    try {
+        New-Item -ItemType Directory -Force -Path $probeHome | Out-Null
+        Copy-Item -LiteralPath $authFile -Destination (Join-Path $probeHome 'auth.json') -Force
+        $env:CODEX_HOME = $probeHome
+        $raw = & $codexExe debug models 2>$null | Out-String
+        if ($LASTEXITCODE -ne 0 -or -not $raw) { return $null }
+        $parsed = $raw | ConvertFrom-Json
+        if (-not $parsed.models -or @($parsed.models).Count -eq 0) { return $null }
+        [IO.File]::WriteAllText($OfficialCatalog, $raw, (New-Object System.Text.UTF8Encoding($false)))
+        return $OfficialCatalog
+    } catch {
+        return $null
+    } finally {
+        $env:CODEX_HOME = $previousCodexHome
+        # The probe home holds a copy of the auth token; never leave it behind.
+        try {
+            [IO.File]::Delete((Join-Path $probeHome 'auth.json'))
+            [IO.Directory]::Delete($probeHome, $true)
+        } catch { }
+    }
+}
+
+<#
+    Regenerate the catalog Codex reads - that is, the model menu.
+
+    Merges the freshly fetched official list with the DeepSeek / relay /
+    WorkBuddy provider configs. Falls back to models_cache.json when the fetch
+    fails, so an offline machine keeps the menu it already had.
+#>
+
+<#
+    The path handed to the sync script for a provider that is not configured.
+
+    sync-model-catalog.js receives its provider configs as positional
+    arguments, so omitting a missing one shifts every argument after it and
+    silently reinterprets one provider's config as another's - a DeepSeek file
+    would be read as the relay config, and the DeepSeek group would come out
+    empty. A path that cannot exist keeps the positions fixed and reads, to the
+    script, as "not configured".
+#>
+function Get-AbsentProviderArg {
+    return (Join-Path $CodexHome '.provider-models-not-configured.json')
+}
+
+function Sync-ModelCatalog {
+    $node = Resolve-NodeExe -Preferred $NodeExe
+    $source = Update-OfficialModelCatalog
+    if (-not $source) { $source = $ModelsCache }
+
+    $relayArg     = if (Test-Path -LiteralPath $RelayConfig)     { $RelayConfig }     else { Get-AbsentProviderArg }
+    $workbuddyArg = if (Test-Path -LiteralPath $WorkbuddyConfig) { $WorkbuddyConfig } else { Get-AbsentProviderArg }
+    $deepseekArg  = if (Test-Path -LiteralPath $DeepseekConfig)  { $DeepseekConfig }  else { Get-AbsentProviderArg }
+
+    $syncArgs = @(
+        $SyncScript, $source, $RouterModels, $RouterLastGood,
+        $relayArg, $workbuddyArg, $deepseekArg
+    )
+
+    # Keep the child's stderr out of the caller's console. On failure its first
+    # lines are far more useful in the log than a raw stack trace on screen -
+    # and the launcher's console may not be visible at all.
+    $stderrFile = Join-Path ([IO.Path]::GetTempPath()) ('codex-sync-' + [Guid]::NewGuid().ToString('N') + '.log')
+    try {
+        $output = & $node @syncArgs 2>$stderrFile
+        if ($LASTEXITCODE -ne 0) {
+            $detail = ''
+            if (Test-Path -LiteralPath $stderrFile) {
+                # Windows PowerShell 5.1 renders a native command's stderr as an
+                # error record before it reaches the file, so drop its
+                # decoration and keep the first real message lines.
+                $trace = @(
+                    [IO.File]::ReadAllLines($stderrFile) |
+                        ForEach-Object { $_.Trim() } |
+                        Where-Object { $_ -and $_ -notmatch '^(At |\+|CategoryInfo|FullyQualifiedErrorId)' } |
+                        Select-Object -First 2
+                )
+                if ($trace.Count -gt 0) { $detail = ': ' + (($trace | ForEach-Object { $_.Trim() }) -join ' | ') }
+            }
+            throw "catalog sync exited with code $LASTEXITCODE$detail"
+        }
+        return ($output -join ' ')
+    } finally {
+        try { [IO.File]::Delete($stderrFile) } catch { }
+    }
+}

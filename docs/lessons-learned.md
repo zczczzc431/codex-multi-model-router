@@ -176,6 +176,64 @@ change it.
 it changed, the router is restarted and the change is written to the log. That
 turns "it broke mysteriously after an update" into a line in a file.
 
+## 9. Overriding a tool's file takes over everything that file's owner did
+
+The catalog is generated from Codex's own model list, and the assumption was
+that the list refreshes itself: the supervisor records the CLI version, notices
+a Codex upgrade, and resyncs. That assumption was wrong, and it failed
+silently.
+
+Codex rewrites `models_cache.json` only when *it* fetches the remote catalog.
+Once `model_catalog_json` redirects the model list to our generated file, that
+fetch stops happening, and the cache is left frozen at whatever models existed
+when the redirect was installed. So:
+
+- a Codex upgrade does not refresh it — the fetch is triggered by the catalog
+  request, not by the new binary
+- models the vendor ships afterwards never reach the menu
+- nothing errors; the menu is simply stale
+
+Measured on the real machine: after a Codex app update plus restart, the cache
+timestamp was unchanged, while two new models were already available to the
+same account.
+
+**What we do about it:** the launcher fetches the official list itself on every
+start. It runs the CLI's catalog dump inside a throwaway `CODEX_HOME` seeded
+with a copy of `auth.json`, which is unaffected by the redirect, and deletes
+that directory — credential copy included — in a `finally` block. If the fetch
+fails, it falls back to the existing cache so an offline machine keeps the menu
+it already had.
+
+**Generalisation:** if you override a file the tool normally maintains, assume
+the tool stops maintaining it. Every refresh, migration and cleanup that used
+to happen is now yours.
+
+## 10. Another app's install path is not stable across updates
+
+Codex installs its CLI into a directory named after a content hash:
+
+```
+%LOCALAPPDATA%\OpenAI\Codex\bin\<hash>\codex.exe
+```
+
+One update rotated that hash and deleted the previous directory. Anything still
+holding the old path — a config value, a wrapper script, an environment
+variable — now points at a file that does not exist.
+
+The failure is confusing because it is *selective*. The app updates its own
+`config.toml` entry automatically, so Codex itself keeps working, and only the
+side integrations break. Nothing reports "the path you stored is gone"; you get
+a file-not-found from an unrelated corner of the setup, minutes later.
+
+**What we do about it:** resolve the executable at use time instead of storing
+it — newest `bin\<hash>\codex.exe`, then `codex` on `PATH` as a fallback. Same
+principle as resolving `CODEX_HOME` at runtime instead of baking in
+`~/.codex`.
+
+**Generalisation:** treat paths into another application's install directory as
+a cache, not as configuration. Hash-suffixed and version-managed paths are
+*expected* to move.
+
 ## Checklist distilled
 
 If you are doing the same kind of thing:
@@ -193,3 +251,8 @@ If you are doing the same kind of thing:
 - [ ] Record versions of anything you interoperate with.
 - [ ] When you make a change, verify the *effect* with numbers, not that the
       change ran.
+- [ ] If you override a file the tool maintains, take over whatever that
+      maintenance used to do — and check that it was doing something.
+- [ ] Never store another app's hashed install path. Resolve it when you use it.
+- [ ] Test the *empty* case of a config, not just a populated one: an empty
+      result must fall back, not silently wipe the thing it replaced.

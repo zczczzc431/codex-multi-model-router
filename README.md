@@ -47,7 +47,8 @@ tasks. Having them one menu click away makes it practical to use them.
 - Switching models inside a running task
 - Per-provider model definitions in JSON, so adding a model is a config edit
 - Credentials stored with Windows DPAPI, never in plaintext on disk
-- A catalog that regenerates itself after a Codex upgrade
+- A catalog that refreshes itself on every launch, so models the vendor ships
+  after your setup still reach the menu
 
 ## Requirements
 
@@ -101,6 +102,7 @@ on. The design that came out of it:
 | Automatic fallback to the built-in provider when the router will not start | Being locked out |
 | `Use-OfficialProvider.ps1` escape hatch | Manual recovery, always available |
 | Startup repair of a `config.toml` that points at a dead local proxy | Third-party switchers rewriting your config |
+| Rebuilding the model catalog on every launch | A menu that silently stops gaining new models |
 
 Read [docs/lessons-learned.md](docs/lessons-learned.md). It documents each of
 these as a concrete bug that was hit in practice — including an escape hatch
@@ -117,6 +119,7 @@ that had never once worked, precisely because nothing ever exercised it.
       _common.ps1               shared path + helper resolution
       Start-ModelRouter.ps1     supervisor (Scheduled Task runs this)
       Activate-ModelRouter.ps1  health check, restart, repair, fallback
+      Sync-ModelCatalog.ps1     rebuild the menu without restarting anything
       Start-Codex-WithModels.ps1 launcher, including full restart
       Use-OfficialProvider.ps1  escape hatch back to the built-in provider
       Set-*.ps1, Save-*.ps1     credential entry points

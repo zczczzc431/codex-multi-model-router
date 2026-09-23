@@ -95,14 +95,11 @@ try {
     }
 
     # --- sync the model catalog ------------------------------------------
+    # The same routine the launcher uses: re-fetch the official model list,
+    # then merge every provider config into the catalog Codex reads. Shared so
+    # the two entry points cannot drift apart.
     try {
-        $syncArgs = @($SyncScript, $ModelsCache, $RouterModels, $RouterLastGood)
-        if (Test-Path -LiteralPath $RelayConfig)     { $syncArgs += $RelayConfig }
-        if (Test-Path -LiteralPath $WorkbuddyConfig) { $syncArgs += $WorkbuddyConfig }
-        if (Test-Path -LiteralPath $DeepseekConfig) { $syncArgs += $DeepseekConfig }
-        $syncOutput = & $node @syncArgs
-        if ($LASTEXITCODE -ne 0) { throw "catalog sync exited with code $LASTEXITCODE" }
-        Write-RouterLog ($syncOutput -join ' ')
+        Write-RouterLog "catalog sync: $(Sync-ModelCatalog)"
     } catch {
         Write-RouterLog "catalog sync skipped: $($_.Exception.Message)"
     }

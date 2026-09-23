@@ -61,14 +61,18 @@ where the config says it is.
 
 ## A model I added does not appear in the menu
 
-The catalog only regenerates when the supervisor starts, or when the launcher
-notices the fingerprint changed.
+Regenerate it directly:
 
 ```powershell
-.\scripts\Activate-ModelRouter.ps1     # notices the config change, restarts, resyncs
+.\scripts\Sync-ModelCatalog.ps1
 ```
 
-Then confirm it made it in:
+That prints the resulting menu, so a missing model is visible immediately.
+`Activate-ModelRouter.ps1` does the same on every launch, and the supervisor
+also does it at startup, so this is mainly for checking without restarting
+anything.
+
+Then confirm it is in the file Codex reads:
 
 ```powershell
 (Get-Content $env:USERPROFILE\.codex\router-models.json -Raw | ConvertFrom-Json).models.slug |
@@ -78,6 +82,33 @@ Then confirm it made it in:
 If a provider config is unreadable, the sync keeps the previous entries for
 that provider rather than dropping them — so a missing model usually means the
 config never parsed. Check the log for `catalog sync`.
+
+And remember that Codex reads the catalog when it *starts*: regenerating the
+file does not update the menu of an app that is already open. Restart the app
+to see the new list.
+
+## New official (GPT) models do not appear in the menu
+
+They are often already available to your account, but were released after this
+setup — and Codex will not pick them up by itself. While `model_catalog_json`
+is set, Codex stops refreshing its own `models_cache.json`, so upgrading Codex
+alone does not fix it. See [lesson 9](lessons-learned.md).
+
+```powershell
+.\scripts\Sync-ModelCatalog.ps1     # re-fetch the official list, then merge
+```
+
+That writes `official-models.json` next to the other state files. To see what
+the fetch returned:
+
+```powershell
+(Get-Content $env:USERPROFILE\.codex\official-models.json -Raw | ConvertFrom-Json).models.slug
+```
+
+If that file is missing, or older than the run you just did, the fetch failed
+and the sync fell back to the stale cache — which is why the menu looks
+unchanged. The usual causes are a missing `auth.json` in the Codex home, or
+`codex.exe` not being found. Check the log for `catalog sync`.
 
 ## I edited router.js and nothing changed
 
@@ -104,7 +135,7 @@ Verify the running code is actually new:
 Get-CimInstance Win32_Process -Filter "Name='node.exe'" |
   Where-Object { $_.CommandLine -match 'workbuddy-bridge|router.js' } |
   Select-Object ProcessId, CreationDate
-````
+```
 
 ## Display names look like garbage (`GPT-5.4 (绀轰緥绔?`)
 
