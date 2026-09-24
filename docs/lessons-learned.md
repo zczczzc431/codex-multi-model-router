@@ -280,6 +280,20 @@ the child a file or a pipe you control.
 **And:** when a fallback triggers, log it. Silent degradation trains everyone
 to distrust the feature.
 
+## 12. A fallback must have a tested return path
+
+The official-provider escape hatch comments out `model`, `model_provider`, and
+`model_catalog_json`. That is the correct emergency behavior, but leaving those
+comments in place means every later launch silently stays on the built-in
+provider. A Codex update can produce the same symptom by removing the root keys
+while preserving the provider table.
+
+The shared PowerShell helper now snapshots the last working values, restores
+missing or fallback-commented keys before catalog sync, and verifies the
+candidate config before writing it. It refuses to act when another provider is
+explicitly selected. The four important cases are tested: commented keys,
+missing keys, an already healthy config, and a deliberate different provider.
+
 ## Checklist distilled
 
 If you are doing the same kind of thing:
@@ -305,3 +319,5 @@ If you are doing the same kind of thing:
 - [ ] Never capture another process's output through a PowerShell pipeline when
       the payload is UTF-8 and the host may not be: redirect to a file instead.
 - [ ] Log every fallback the moment it triggers, with the reason it triggered.
+- [ ] If a fallback comments out user configuration, define and test the exact
+      path that restores it after the next healthy launch or application update.

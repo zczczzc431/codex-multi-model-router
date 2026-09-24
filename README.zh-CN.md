@@ -77,12 +77,13 @@ Copy-Item .\examples\workbuddy-models.json $env:USERPROFILE\.codex\
 | 启动器**先**验证 `/health` 再开应用 | 把应用启动进一个坏状态 |
 | 清理占着端口的僵尸进程 | `EADDRINUSE` 导致新实例起不来 |
 | 路由起不来时自动切回内置 provider | 被锁在门外 |
+| 回退或应用更新后自动恢复路由键 | 多模型菜单悄悄消失 |
 | `Use-OfficialProvider.ps1` 逃生脚本 | 随时手动恢复 |
 | 启动时修复指向死端口的 `config.toml` | 第三方切换工具改写你的配置 |
 | 每次启动重建模型目录 | 菜单悄悄停止更新新模型 |
 
 细节见 [docs/lessons-learned.md](docs/lessons-learned.md)（英文）。
-里面把 11 个坑写成了具体案例，
+里面把 12 个坑写成了具体案例，
 包括一个**从没成功运行过一次的逃生脚本**——正因为没人跑过它。
 
 ## 目录结构

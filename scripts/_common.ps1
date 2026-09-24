@@ -32,6 +32,7 @@ $script:RouterTaskName = if ($env:CODEX_ROUTER_TASK) { $env:CODEX_ROUTER_TASK } 
 $script:RouterLog          = Join-Path $CodexHome 'codex-model-router.log'
 $script:FingerprintFile    = Join-Path $CodexHome 'codex-router-files.sha256'
 $script:CliVersionFile     = Join-Path $CodexHome 'codex-router-last-cli-version.txt'
+$script:RouterKeySnapshot  = Join-Path $CodexHome 'codex-router-config-keys.snapshot'
 
 # --- provider config -------------------------------------------------------
 $script:RelayConfig        = Join-Path $CodexHome 'relay-models.json'
@@ -325,4 +326,106 @@ function Sync-ModelCatalog {
     } finally {
         try { [IO.File]::Delete($stderrFile) } catch { }
     }
+}
+
+function Get-RouterConfigKeyValue {
+    param([string]$Name, [string[]]$Sources)
+    $pattern = "(?m)^[ \t]*" + $Name + "[ \t]*=[ \t]*('[^']*'|\x22[^\x22]*\x22)[ \t]*\r?$"
+    foreach ($source in $Sources) {
+        if (-not $source -or -not (Test-Path -LiteralPath $source)) { continue }
+        try {
+            $match = [regex]::Match([IO.File]::ReadAllText($source), $pattern)
+            if ($match.Success) { return $match.Groups[1].Value }
+        } catch { }
+    }
+    return $null
+}
+
+function Get-RouterConfigSources {
+    $sources = New-Object System.Collections.ArrayList
+    if (Test-Path -LiteralPath $RouterKeySnapshot) { [void]$sources.Add($RouterKeySnapshot) }
+    [void]$sources.Add($CodexConfig)
+    try {
+        $backups = @(Get-ChildItem -LiteralPath $CodexHome -Filter 'config.toml.before-*.bak' -ErrorAction SilentlyContinue |
+            Sort-Object LastWriteTime -Descending | Select-Object -ExpandProperty FullName)
+        foreach ($backup in $backups) { [void]$sources.Add($backup) }
+    } catch { }
+    return $sources.ToArray()
+}
+
+function Repair-RouterConfigKeys {
+    if (-not (Test-Path -LiteralPath $CodexConfig)) { return $false }
+    $text = [IO.File]::ReadAllText($CodexConfig)
+    if (-not [regex]::IsMatch($text, '(?m)^[ \t]*\[model_providers\.codex_router\][ \t]*\r?$')) { return $false }
+
+    # Respect an explicit switch to another provider.
+    $active = [regex]::Match($text, '(?m)^[ \t]*model_provider[ \t]*=[ \t]*[''\x22]([^''\x22]+)[''\x22][ \t]*\r?$')
+    if ($active.Success -and $active.Groups[1].Value -ne 'codex_router') { return $false }
+
+    $quote = [char]39
+    $providerPattern = "(?m)^[ \t]*model_provider[ \t]*=[ \t]*" + $quote + "codex_router" + $quote + "[ \t]*\r?$"
+    $catalogPattern = '(?m)^[ \t]*model_catalog_json[ \t]*='
+    $modelPattern = '(?m)^[ \t]*model[ \t]*='
+    $marker = 'disabled by official-provider fallback'
+    $healthy = [regex]::IsMatch($text, $providerPattern) -and [regex]::IsMatch($text, $catalogPattern) -and [regex]::IsMatch($text, $modelPattern) -and -not [regex]::IsMatch($text, $marker)
+    if ($healthy) { return $false }
+
+    $sources = Get-RouterConfigSources
+    $providerLine = 'model_provider = ' + $quote + 'codex_router' + $quote
+    $catalogValue = Get-RouterConfigKeyValue -Name 'model_catalog_json' -Sources $sources
+    if (-not $catalogValue) { $catalogValue = $quote + $RouterModels + $quote }
+    $catalogLine = 'model_catalog_json = ' + $catalogValue
+
+    $available = @()
+    if (Test-Path -LiteralPath $RouterModels) {
+        try { $available = @((Read-JsonFile -Path $RouterModels).models | ForEach-Object { $_.slug }) } catch { }
+    }
+    $modelValue = Get-RouterConfigKeyValue -Name 'model' -Sources $sources
+    $modelName = if ($modelValue) { $modelValue.Trim([char]39, [char]34) } else { '' }
+    if (-not $modelName -or ($available.Count -gt 0 -and $available -notcontains $modelName)) {
+        if ($available -contains 'deepseek-flash') { $modelName = 'deepseek-flash' }
+        elseif ($available.Count -gt 0) { $modelName = $available[0] }
+        else { $modelName = 'deepseek-flash' }
+    }
+    $modelLine = 'model = ' + $quote + $modelName + $quote
+
+    $updated = $text
+    $updated = [regex]::Replace($updated, '(?m)^[ \t]*#[ \t]*model_provider[ \t]+disabled by official-provider fallback[ \t]*\r?$', $providerLine)
+    $updated = [regex]::Replace($updated, '(?m)^[ \t]*#[ \t]*model_catalog_json[ \t]+disabled by official-provider fallback[ \t]*\r?$', $catalogLine)
+    $updated = [regex]::Replace($updated, '(?m)^[ \t]*#[ \t]*model[ \t]+disabled by official-provider fallback[ \t]*\r?$', $modelLine)
+    $missing = @()
+    if (-not [regex]::IsMatch($updated, $providerPattern)) { $missing += $providerLine }
+    if (-not [regex]::IsMatch($updated, $catalogPattern)) { $missing += $catalogLine }
+    if (-not [regex]::IsMatch($updated, $modelPattern)) { $missing += $modelLine }
+    if ($missing.Count -gt 0) {
+        $newline = if ($text.Contains("`r`n")) { "`r`n" } else { "`n" }
+        $block = ($missing -join $newline) + $newline
+        $firstTable = [regex]::Match($updated, '(?m)^[ \t]*\[')
+        if ($firstTable.Success) { $updated = $updated.Insert($firstTable.Index, $block) }
+        else { $updated = $updated.TrimEnd() + $newline + $block }
+    }
+    if ($updated -eq $text) { return $false }
+
+    $valid = [regex]::IsMatch($updated, $providerPattern) -and [regex]::IsMatch($updated, $catalogPattern) -and [regex]::IsMatch($updated, $modelPattern) -and -not [regex]::IsMatch($updated, $marker) -and $updated.Length -ge ($text.Length / 2)
+    if (-not $valid) { Write-RouterLog 'router key repair refused to write an unusable config'; return $false }
+    $backup = "$CodexConfig.before-key-repair.$(Get-Date -Format yyyyMMdd-HHmmss).bak"
+    Copy-Item -LiteralPath $CodexConfig -Destination $backup -Force
+    [IO.File]::WriteAllText($CodexConfig, $updated, (New-Object System.Text.UTF8Encoding($false)))
+    Write-RouterLog "restored the router keys in config.toml (model=$modelName; backup: $(Split-Path -Leaf $backup))"
+    return $true
+}
+
+function Save-RouterConfigSnapshot {
+    try {
+        if (-not (Test-Path -LiteralPath $CodexConfig)) { return }
+        $text = [IO.File]::ReadAllText($CodexConfig)
+        $newline = if ($text.Contains("`r`n")) { "`r`n" } else { "`n" }
+        $lines = @()
+        foreach ($name in @('model', 'model_catalog_json', 'model_provider')) {
+            $pattern = "(?m)^[ \t]*" + $name + "[ \t]*=[ \t]*('[^']*'|\x22[^\x22]*\x22)[ \t]*\r?$"
+            $match = [regex]::Match($text, $pattern)
+            if ($match.Success) { $lines += ($name + ' = ' + $match.Groups[1].Value) }
+        }
+        if ($lines.Count -eq 3) { [IO.File]::WriteAllText($RouterKeySnapshot, (($lines -join $newline) + $newline), (New-Object System.Text.UTF8Encoding($false))) }
+    } catch { }
 }

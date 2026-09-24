@@ -24,7 +24,16 @@
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot '_common.ps1')
 
-# --- 1. repair a config that points at a dead local proxy ------------------
+# --- 1. restore router keys removed by a fallback or update ----------------
+try {
+    if (Repair-RouterConfigKeys) {
+        Write-Host 'Restored the model-router settings in config.toml.' -ForegroundColor Yellow
+    }
+} catch {
+    Write-RouterLog "router key repair skipped: $($_.Exception.Message)"
+}
+
+# --- 2. repair a config that points at a dead local proxy ------------------
 function Get-ActiveModelProvider {
     param([string]$Text)
     $m = [regex]::Match($Text, '(?m)^\s*model_provider\s*=\s*[''"]([A-Za-z0-9_.\-]+)[''"]\s*$')
@@ -73,7 +82,7 @@ try {
     Write-RouterLog "provider repair skipped: $($_.Exception.Message)"
 }
 
-# --- 2. refresh the model menu --------------------------------------------
+# --- 3. refresh the model menu --------------------------------------------
 # Best effort: a stale menu is far better than a launcher that refuses to
 # start, so every failure here is logged and then ignored.
 try {
@@ -82,7 +91,7 @@ try {
     Write-RouterLog "catalog sync skipped: $($_.Exception.Message)"
 }
 
-# --- 3. restart the task when needed --------------------------------------
+# --- 4. restart the task when needed --------------------------------------
 $parts = @($RouterEntry, $RelayConfig, $SyncScript, $WorkbuddyAdapter, $WorkbuddyConfig, $DeepseekConfig)
 function Get-RouterFingerprint {
     $hashes = foreach ($part in $parts) {
@@ -120,7 +129,7 @@ if (-not $healthy -or $versionChanged -or $filesChanged) {
     Start-ScheduledTask -TaskName $task.TaskName
 }
 
-# --- 4. wait for health, else fall back -----------------------------------
+# --- 5. wait for health, else fall back -----------------------------------
 $ready = $false
 for ($i = 0; $i -lt 60; $i++) {
     if (Test-RouterUp) { $ready = $true; break }
@@ -143,6 +152,7 @@ if (-not $ready) {
 }
 
 Set-Content -LiteralPath $FingerprintFile -Value $currentFingerprint -Encoding ascii
+Save-RouterConfigSnapshot
 
 Write-Host ''
 Write-Host 'Local model router is ready.' -ForegroundColor Green

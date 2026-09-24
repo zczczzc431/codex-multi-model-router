@@ -100,6 +100,7 @@ on. The design that came out of it:
 | Launcher verifies `/health` **before** opening the app | Starting the app into a broken state |
 | Stale-port reaper (`EADDRINUSE`) | A half-dead old instance blocking the new one |
 | Automatic fallback to the built-in provider when the router will not start | Being locked out |
+| Automatic restoration of router keys after fallback or app update | Multi-model menu silently disappearing |
 | `Use-OfficialProvider.ps1` escape hatch | Manual recovery, always available |
 | Startup repair of a `config.toml` that points at a dead local proxy | Third-party switchers rewriting your config |
 | Rebuilding the model catalog on every launch | A menu that silently stops gaining new models |
