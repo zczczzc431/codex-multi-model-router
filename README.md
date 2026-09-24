@@ -109,6 +109,21 @@ Read [docs/lessons-learned.md](docs/lessons-learned.md). It documents each of
 these as a concrete bug that was hit in practice — including an escape hatch
 that had never once worked, precisely because nothing ever exercised it.
 
+### After a Codex update
+
+Run the health check. It verifies the resolved `codex.exe`, the router process
+and supervisor task, the generated catalog per provider group, the root keys in
+`config.toml`, and the WorkBuddy bridge — including whether its stored
+`codex.exe` path was invalidated by the update.
+
+```powershell
+.\scripts\Check-RouterHealth.ps1
+```
+
+It exits `0` when everything passes and `1` otherwise, so it works from a
+script or a scheduled task. Its only write is refreshing a stale
+`WORKBUDDY_CODEX_EXE`, and it backs up `config.toml` first.
+
 ## Repository layout
 
     src/

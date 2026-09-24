@@ -26,7 +26,31 @@ $script:RouterPort =
     else                        { 18763 }
 
 $script:RouterUrl      = "http://127.0.0.1:$script:RouterPort"
-$script:RouterTaskName = if ($env:CODEX_ROUTER_TASK) { $env:CODEX_ROUTER_TASK } else { 'Codex Model Router' }
+
+<#
+    The scheduled task that supervises the router.
+
+    CODEX_ROUTER_TASK wins. Otherwise the task is resolved by name, because an
+    installation may have registered it as something other than the default -
+    renaming the task is a supported way to run more than one router, and an
+    existing install keeps whatever name it was created with. Falling back to
+    the default keeps a fresh install working before the task exists.
+#>
+$script:RouterTaskCandidates = @(
+    'Codex Model Router'
+    'Codex GPT DeepSeek Router'
+    'Codex Multi-Model Router'
+)
+
+function Resolve-RouterTaskName {
+    if ($env:CODEX_ROUTER_TASK) { return $env:CODEX_ROUTER_TASK }
+    foreach ($candidate in $RouterTaskCandidates) {
+        if (Get-ScheduledTask -TaskName $candidate -ErrorAction SilentlyContinue) { return $candidate }
+    }
+    return $RouterTaskCandidates[0]
+}
+
+$script:RouterTaskName = Resolve-RouterTaskName
 
 # --- runtime files ---------------------------------------------------------
 $script:RouterLog          = Join-Path $CodexHome 'codex-model-router.log'

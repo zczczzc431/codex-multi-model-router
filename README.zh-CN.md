@@ -86,6 +86,20 @@ Copy-Item .\examples\workbuddy-models.json $env:USERPROFILE\.codex\
 里面把 12 个坑写成了具体案例，
 包括一个**从没成功运行过一次的逃生脚本**——正因为没人跑过它。
 
+### Codex 更新之后
+
+跑一次健康检查。它会验证实际解析到的 `codex.exe`、路由进程与守护任务、
+各 provider 分组在模型目录里的条目、`config.toml` 的三个根键，以及
+WorkBuddy 桥——包括它记录的 `codex.exe` 路径是否已被更新作废。
+
+```powershell
+.\scripts\Check-RouterHealth.ps1
+```
+
+全部通过时退出码为 `0`，否则为 `1`，可以直接放进脚本或计划任务。
+它唯一的写操作是把过期的 `WORKBUDDY_CODEX_EXE` 刷新到当前路径，
+并且会先备份 `config.toml`。
+
 ## 目录结构
 
     src/

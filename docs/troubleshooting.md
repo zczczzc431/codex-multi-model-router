@@ -161,8 +161,9 @@ You are reading a UTF-8 config with a codepage-dependent reader. Use
 
 ```powershell
 .\scripts\Use-OfficialProvider.ps1
-Stop-ScheduledTask -TaskName 'Codex Model Router'
-Unregister-ScheduledTask -TaskName 'Codex Model Router' -Confirm:$false
+$task = (Get-ScheduledTask | Where-Object { $_.TaskName -like '*Codex*Router*' }).TaskName
+Stop-ScheduledTask -TaskName $task
+Unregister-ScheduledTask -TaskName $task -Confirm:$false
 ```
 
 Codex is then back to its normal single-provider setup, and the extra models
