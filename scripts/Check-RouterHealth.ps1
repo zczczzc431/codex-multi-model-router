@@ -152,12 +152,12 @@ if (-not $configuredExe.Success) {
 } else {
     $stale = $configuredExe.Groups[1].Value
     Write-Warn "WORKBUDDY_CODEX_EXE points at a removed path: $stale"
-    $backup = Join-Path $CodexHome ('config.toml.before-exe-refresh.' + (Get-Date -Format yyyyMMdd-HHmmss) + '.bak')
-    Copy-Item -LiteralPath $CodexConfig -Destination $backup -Force
-    $replacement = 'WORKBUDDY_CODEX_EXE = ' + $quote + $codexExe + $quote
-    $updatedText = [regex]::Replace($configText, $exePattern, $replacement)
-    [IO.File]::WriteAllText($CodexConfig, $updatedText, (New-Object System.Text.UTF8Encoding($false)))
-    Write-Ok "refreshed to $codexExe (backup: $(Split-Path -Leaf $backup)); restart Codex for it to take effect"
+    $refresh = Repair-WorkBuddyCodexExePath -CodexExe $codexExe
+    if ($refresh) {
+        Write-Ok "refreshed to $($refresh.Current) (backup: $(Split-Path -Leaf $refresh.Backup)); restart Codex for it to take effect"
+    } else {
+        Write-Fail 'could not refresh WORKBUDDY_CODEX_EXE'
+    }
 }
 
 # --- summary ---------------------------------------------------------------

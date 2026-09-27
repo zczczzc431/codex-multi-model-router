@@ -54,7 +54,7 @@ tasks. Having them one menu click away makes it practical to use them.
 
 - Windows (the credential storage and launcher scripts are Windows-specific)
 - Node.js 18+
-- Codex desktop, with its bundled `codex` CLI (tested on CLI `0.155.x`)
+- Codex desktop, with its bundled `codex` CLI (tested on CLI `0.155.x` and `0.158.x`)
 
 ## Quickstart
 

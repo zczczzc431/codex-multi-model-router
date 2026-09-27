@@ -100,6 +100,7 @@ try {
     # the two entry points cannot drift apart.
     try {
         try { [void](Repair-RouterConfigKeys) } catch { Write-RouterLog "router key repair skipped: $($_.Exception.Message)" }
+        try { [void](Repair-WorkBuddyCodexExePath -CodexExe (Resolve-CodexExe)) } catch { Write-RouterLog "WorkBuddy CLI path repair skipped: $($_.Exception.Message)" }
         Write-RouterLog "catalog sync: $(Sync-ModelCatalog)"
         Save-RouterConfigSnapshot
     } catch {

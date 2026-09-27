@@ -34,7 +34,7 @@ Codex 从目录文件读取模型列表，并把所有请求发给唯一一个 p
 
 - Windows（密钥存储和启动脚本依赖 Windows）
 - Node.js 18+
-- Codex 桌面版及其自带的 `codex` CLI（实测 CLI `0.155.x`）
+- Codex 桌面版及其自带的 `codex` CLI（实测 CLI `0.155.x` 和 `0.158.x`）
 
 ## 快速开始
 

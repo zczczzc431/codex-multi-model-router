@@ -196,6 +196,44 @@ function Resolve-CodexExe {
 }
 
 <#
+    Refresh the codex.exe path passed to the WorkBuddy bridge.
+
+    The desktop updater removes the old hashed CLI directory.  WorkBuddy can
+    scan for the replacement as a fallback, but repairing config.toml before
+    the desktop app starts avoids depending on that fallback after every
+    Codex update.
+#>
+function Repair-WorkBuddyCodexExePath {
+    param([string]$CodexExe)
+
+    if (-not $CodexExe) { $CodexExe = Resolve-CodexExe }
+    if (-not $CodexExe -or -not (Test-Path -LiteralPath $CodexExe)) { return $null }
+    if (-not (Test-Path -LiteralPath $CodexConfig)) { return $null }
+
+    $text = [IO.File]::ReadAllText($CodexConfig)
+    $pattern = "(?m)^[ \t]*WORKBUDDY_CODEX_EXE[ \t]*=[ \t]*('[^']*'|\x22[^\x22]*\x22)[ \t]*\r?$"
+    $match = [regex]::Match($text, $pattern)
+    if (-not $match.Success) { return $null }
+
+    $configured = $match.Groups[1].Value.Trim([char]39, [char]34)
+    if ($configured -and (Test-Path -LiteralPath $configured)) { return $null }
+
+    $backup = "$CodexConfig.before-exe-refresh.$(Get-Date -Format yyyyMMdd-HHmmss).bak"
+    Copy-Item -LiteralPath $CodexConfig -Destination $backup -Force
+    $replacement = "WORKBUDDY_CODEX_EXE = '$CodexExe'"
+    $updated = (New-Object regex($pattern)).Replace($text, $replacement, 1)
+    if ($updated -eq $text) { return $null }
+
+    [IO.File]::WriteAllText($CodexConfig, $updated, (New-Object System.Text.UTF8Encoding($false)))
+    Write-RouterLog "refreshed stale WORKBUDDY_CODEX_EXE: '$configured' -> '$CodexExe' (backup: $(Split-Path -Leaf $backup))"
+    return [pscustomobject]@{
+        Previous = $configured
+        Current  = $CodexExe
+        Backup   = $backup
+    }
+}
+
+<#
     Fetch the CURRENT official model list into $OfficialCatalog.
 
     Codex only rewrites its own models_cache.json when it fetches the remote

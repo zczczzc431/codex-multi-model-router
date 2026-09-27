@@ -33,6 +33,15 @@ try {
     Write-RouterLog "router key repair skipped: $($_.Exception.Message)"
 }
 
+try {
+    $exeRefresh = Repair-WorkBuddyCodexExePath
+    if ($exeRefresh) {
+        Write-Host 'Refreshed the WorkBuddy CLI path after a Codex update.' -ForegroundColor Yellow
+    }
+} catch {
+    Write-RouterLog "WorkBuddy CLI path repair skipped: $($_.Exception.Message)"
+}
+
 # --- 2. repair a config that points at a dead local proxy ------------------
 function Get-ActiveModelProvider {
     param([string]$Text)
