@@ -34,14 +34,16 @@ $backupPath = Join-Path $backupRoot "config.toml.before-cyberpunk-$stamp.bak"
 Copy-Item -LiteralPath $configPath -Destination $backupPath -Force
 
 $block = @'
-
 # Deep Dive Protocol / Cyberpunk 2077 inspired appearance.
 appearanceTheme = "dark"
 appearanceDarkCodeThemeId = "monokai"
 appearanceDarkChromeTheme = { accent = "#ff4b4b", accentSource = "custom", contrast = 68, fonts = { code = 'Consolas, "Cascadia Mono", monospace', ui = 'Bahnschrift, "Segoe UI", sans-serif' }, ink = "#f5e9e2", opaqueWindows = true, semanticColors = { diffAdded = "#28f0c0", diffRemoved = "#ff4b68", skill = "#ffd166" }, surface = "#120d12" }
 '@
 
-Set-Content -LiteralPath $configPath -Value ($content.TrimEnd() + $block + "`r`n") -Encoding utf8NoBOM
+$desktop = [regex]::Match($content, '(?m)^\[desktop\]\s*$')
+if (-not $desktop.Success) { throw "The [desktop] section was not found; no changes were made." }
+$updated = $content.Insert($desktop.Index + $desktop.Length, "`r`n$($block.Trim())`r`n")
+Set-Content -LiteralPath $configPath -Value $updated -Encoding utf8NoBOM
 
 $python = 'C:\Users\Administrator\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe'
 if (-not (Test-Path -LiteralPath $python)) { $python = (Get-Command python -ErrorAction Stop).Source }
