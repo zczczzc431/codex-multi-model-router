@@ -1,0 +1,28 @@
+{
+  "name": "深潜协议 / Cyberpunk 2077",
+  "variant": "dark",
+  "codeThemeId": "monokai",
+  "theme": {
+    "accent": "#ff4b4b",
+    "accentSource": "custom",
+    "contrast": 68,
+    "fonts": {
+      "code": "Consolas, 'Cascadia Mono', monospace",
+      "ui": "Bahnschrift, 'Segoe UI', sans-serif"
+    },
+    "ink": "#f5e9e2",
+    "opaqueWindows": true,
+    "semanticColors": {
+      "diffAdded": "#28f0c0",
+      "diffRemoved": "#ff4b68",
+      "skill": "#ffd166"
+    },
+    "surface": "#120d12"
+  },
+  "paletteNotes": {
+    "coralRed": "#ff4b4b",
+    "signalCyan": "#28f0c0",
+    "warningYellow": "#ffd166",
+    "deepSurface": "#120d12"
+  }
+}

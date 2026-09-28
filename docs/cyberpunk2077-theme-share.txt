@@ -1,0 +1,1 @@
+codex-theme-v1:{"variant":"dark","theme":{"fonts":{"code":"Consolas, 'Cascadia Mono', monospace","ui":"Bahnschrift, 'Segoe UI', sans-serif"},"accent":"#ff4b4b","semanticColors":{"skill":"#ffd166","diffAdded":"#28f0c0","diffRemoved":"#ff4b68"},"opaqueWindows":true,"ink":"#f5e9e2","accentSource":"custom","surface":"#120d12","contrast":68},"codeThemeId":"monokai"}

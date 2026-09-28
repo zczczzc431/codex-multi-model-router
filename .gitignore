@@ -17,6 +17,7 @@ router-body-dump.jsonl
 router-dump.enabled
 codebuddy-home/
 home/
+backups/
 
 # Editor / OS
 .vscode/
