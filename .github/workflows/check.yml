@@ -1,0 +1,27 @@
+name: Router checks
+on: [push, pull_request]
+permissions:
+  contents: read
+jobs:
+  test:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        node: [22, 24]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+      - run: node --test test/*.mjs
+      - name: Parse Windows PowerShell scripts
+        if: runner.os == 'Windows'
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          Get-ChildItem scripts,install -Filter '*.ps1' -Recurse | ForEach-Object {
+            [scriptblock]::Create([IO.File]::ReadAllText($_.FullName)) | Out-Null
+          }
+          . ./scripts/_common.ps1
+          if (@(Get-RouterFingerprintParts).Count -ne 9) { throw 'Incomplete fingerprint file list' }

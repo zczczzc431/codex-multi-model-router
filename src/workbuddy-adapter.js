@@ -144,6 +144,18 @@ function contentToText(content) {
 
 function buildMessages(payload) {
   const messages = [];
+  // Chat-completions requires one assistant message containing every tool call
+  // in a turn, followed by the matching tool messages.  Codex Responses input
+  // can contain several call items, so emitting one assistant message per
+  // item makes WorkBuddy reject the request with "tool calls and tool results
+  // do not match".  Keep the calls together and only forward results whose
+  // call id was present in this request.
+  const pendingCalls = [];
+  const knownCallIds = new Set();
+  const flushCalls = () => {
+    if (!pendingCalls.length) return;
+    messages.push({ role: 'assistant', content: null, tool_calls: pendingCalls.splice(0) });
+  };
   if (typeof payload.instructions === 'string' && payload.instructions.trim()) {
     messages.push({ role: 'system', content: payload.instructions });
   }
@@ -152,6 +164,7 @@ function buildMessages(payload) {
     if (!item) continue;
     const kind = item.type || (item.role ? 'message' : '');
     if (kind === 'message') {
+      flushCalls();
       const role = item.role === 'developer' ? 'system' : (item.role || 'user');
       const text = contentToText(item.content);
       if (role === 'assistant' && !text) continue;
@@ -159,24 +172,33 @@ function buildMessages(payload) {
     } else if (kind === 'function_call' || kind === 'custom_tool_call') {
       let args = item.arguments;
       if (kind === 'custom_tool_call') args = JSON.stringify({ input: item.input == null ? '' : item.input });
-      messages.push({
-        role: 'assistant',
-        content: null,
-        tool_calls: [{
-          id: item.call_id || item.id || 'call_0',
-          type: 'function',
-          function: { name: item.name || 'tool', arguments: args || '{}' },
-        }],
+      const callId = item.call_id || item.id || 'call_0';
+      knownCallIds.add(callId);
+      pendingCalls.push({
+        id: callId,
+        type: 'function',
+        function: { name: item.name || 'tool', arguments: args || '{}' },
       });
     } else if (kind === 'function_call_output' || kind === 'custom_tool_call_output') {
+      const callId = item.call_id || item.id || 'call_0';
+      // Never send an orphan result: the upstream API rejects the whole
+      // request when a tool result has no corresponding assistant call.
+      if (!knownCallIds.has(callId)) {
+        flushCalls();
+        const out = item.output != null ? item.output : item.content;
+        messages.push({ role: 'user', content: `Prior tool result (${callId}):\n${typeof out === 'string' ? out : JSON.stringify(out == null ? '' : out)}\nUse this completed result to continue; do not repeat the operation automatically.` });
+        continue;
+      }
+      flushCalls();
       const out = item.output != null ? item.output : item.content;
       messages.push({
         role: 'tool',
-        tool_call_id: item.call_id || item.id || 'call_0',
+        tool_call_id: callId,
         content: typeof out === 'string' ? out : JSON.stringify(out == null ? '' : out),
       });
     }
   }
+  flushCalls();
   return messages;
 }
 
@@ -502,5 +524,5 @@ function loadCatalog(file) {
   return map;
 }
 
-module.exports = { createWorkBuddyClient, handleResponsesRequest, loadCatalog, CHAT_PATH, HOST };
+module.exports = { createWorkBuddyClient, handleResponsesRequest, loadCatalog, buildMessages, CHAT_PATH, HOST };
 

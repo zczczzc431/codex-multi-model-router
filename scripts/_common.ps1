@@ -1,4 +1,4 @@
-﻿<#
+<#
     Shared path + helper resolution for every script in this repo.
 
     Dot-source it from the top of another script:
@@ -97,7 +97,10 @@ function Write-RouterLog {
 function Test-RouterUp {
     try {
         $health = Invoke-RestMethod -Uri "$RouterUrl/health" -TimeoutSec 3
-        return $health.status -eq 'ok'
+        $owners = @(Get-RouterPortOwner)
+        if ($owners.Count -ne 1 -or $health.status -ne 'ok' -or [int]$health.pid -ne [int]$owners[0]) { return $false }
+        $ownerProcess = Get-Process -Id $owners[0] -ErrorAction Stop
+        return $ownerProcess.ProcessName -eq 'node'
     } catch {
         return $false
     }
@@ -120,6 +123,16 @@ function Clear-RouterPort {
     $owners = Get-RouterPortOwner
     foreach ($ownerPid in $owners) {
         if (-not $ownerPid -or $ownerPid -eq 0) { continue }
+        $confirmed = $false
+        try {
+            $ownerProcess = Get-Process -Id $ownerPid -ErrorAction Stop
+            $health = Invoke-RestMethod -Uri "$RouterUrl/health" -TimeoutSec 2
+            $confirmed = $ownerProcess.ProcessName -eq 'node' -and $health.status -eq 'ok' -and [int]$health.pid -eq [int]$ownerPid
+        } catch { }
+        if (-not $confirmed) {
+            Write-RouterLog "left unverified listener pid=$ownerPid holding port $RouterPort untouched"
+            continue
+        }
         try {
             Stop-Process -Id $ownerPid -Force -ErrorAction Stop
             Write-RouterLog "stopped stale listener pid=$ownerPid holding port $RouterPort"
@@ -129,9 +142,16 @@ function Clear-RouterPort {
 }
 
 function Get-CodexCliVersion {
-    $cmd = Get-Command codex -ErrorAction SilentlyContinue
-    if (-not $cmd) { return '' }
-    return (& $cmd.Source --version 2>&1 | Out-String).Trim()
+    $exe = Resolve-CodexExe
+    if (-not $exe) { return '' }
+    return (& $exe --version 2>&1 | Out-String).Trim()
+}
+
+# Both launcher and supervisor must hash the same files in the same order.
+function Get-RouterFingerprintParts {
+    return @($RouterEntry, (Join-Path $SrcDir 'context-switch.js'),
+        (Join-Path $SrcDir 'dsml.js'), (Join-Path $SrcDir 'paths.js'),
+        $RelayConfig, $SyncScript, $WorkbuddyAdapter, $WorkbuddyConfig, $DeepseekConfig)
 }
 
 <#
@@ -344,6 +364,39 @@ function Update-OfficialModelCatalog {
     empty. A path that cannot exist keeps the positions fixed and reads, to the
     script, as "not configured".
 #>
+function Test-UsableModelCatalog {
+    param([string]$Path)
+    if (-not $Path -or -not (Test-Path -LiteralPath $Path)) { return $false }
+    try {
+        $parsed = [IO.File]::ReadAllText($Path) | ConvertFrom-Json
+        return $null -ne $parsed.models -and @($parsed.models).Count -gt 0
+    } catch {
+        return $false
+    }
+}
+
+function Select-FallbackModelCatalog {
+    $officialOk = Test-UsableModelCatalog -Path $OfficialCatalog
+    $cacheOk = Test-UsableModelCatalog -Path $ModelsCache
+    if ($officialOk -and -not $cacheOk) {
+        Write-RouterLog "using existing official catalog: $(Split-Path -Leaf $OfficialCatalog) (cache unavailable)"
+        return $OfficialCatalog
+    }
+    if ($officialOk -and $cacheOk) {
+        try {
+            $officialCount = @(([IO.File]::ReadAllText($OfficialCatalog) | ConvertFrom-Json).models).Count
+            $cacheCount = @(([IO.File]::ReadAllText($ModelsCache) | ConvertFrom-Json).models).Count
+            if ($officialCount -gt $cacheCount) {
+                Write-RouterLog "using existing official catalog: $officialCount models vs cache $cacheCount"
+                return $OfficialCatalog
+            }
+        } catch {
+            Write-RouterLog "existing official catalog validation failed: $($_.Exception.Message)"
+        }
+    }
+    Write-RouterLog "falling back to the on-disk cache: $(Split-Path -Leaf $ModelsCache)"
+    return $ModelsCache
+}
 function Get-AbsentProviderArg {
     return (Join-Path $CodexHome '.provider-models-not-configured.json')
 }
@@ -351,8 +404,7 @@ function Get-AbsentProviderArg {
 function Sync-ModelCatalog {
     $node = Resolve-NodeExe -Preferred $NodeExe
     $source = Update-OfficialModelCatalog
-    if (-not $source) { $source = $ModelsCache }
-
+    if (-not $source) { $source = Select-FallbackModelCatalog }
     $relayArg     = if (Test-Path -LiteralPath $RelayConfig)     { $RelayConfig }     else { Get-AbsentProviderArg }
     $workbuddyArg = if (Test-Path -LiteralPath $WorkbuddyConfig) { $WorkbuddyConfig } else { Get-AbsentProviderArg }
     $deepseekArg  = if (Test-Path -LiteralPath $DeepseekConfig)  { $DeepseekConfig }  else { Get-AbsentProviderArg }

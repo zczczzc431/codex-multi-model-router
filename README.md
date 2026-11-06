@@ -52,9 +52,12 @@ tasks. Having them one menu click away makes it practical to use them.
 
 ## Requirements
 
+See [November 2026 maintenance and switching limits](docs/maintenance-2026-11.md)
+for the current local validation, context replay limits and upstream retry behavior.
+
 - Windows (the credential storage and launcher scripts are Windows-specific)
 - Node.js 18+
-- Codex desktop, with its bundled `codex` CLI (tested on CLI `0.155.x` and `0.158.x`)
+- Codex desktop, with its bundled `codex` CLI (tested through CLI `0.163.0-alpha.10.2`)
 
 ## Quickstart
 

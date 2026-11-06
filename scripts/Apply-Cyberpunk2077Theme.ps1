@@ -4,7 +4,7 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
-$sharePath = 'G:\gaoshuacodex\codex-multi-model-router\docs\cyberpunk2077-theme-share.txt'
+$sharePath = Join-Path (Split-Path -Parent $PSScriptRoot) 'docs\cyberpunk2077-theme-share.txt'
 if (-not (Test-Path -LiteralPath $sharePath)) { throw "Theme share file was not found: $sharePath" }
 
 $share = (Get-Content -LiteralPath $sharePath -Raw).Trim()

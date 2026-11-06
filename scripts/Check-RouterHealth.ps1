@@ -70,7 +70,14 @@ Write-Ok "endpoint: $RouterUrl"
 $healthy = $false
 try {
     $health = Invoke-RestMethod -Uri "$RouterUrl/health" -TimeoutSec 8
-    if ($health.status -eq 'ok') { $healthy = $true; Write-Ok "health: status=ok pid=$($health.pid)" }
+    if ($health.status -eq 'ok') {
+        $healthy = $true
+        Write-Ok "health: status=ok pid=$($health.pid)"
+        $owners = @(Get-RouterPortOwner)
+        if ($owners.Count -eq 1 -and [int]$health.pid -eq [int]$owners[0] -and (Get-Process -Id $owners[0] -ErrorAction Stop).ProcessName -eq 'node') {
+            Write-Ok "port $RouterPort is owned by the router"
+        } else { Write-Fail "port $RouterPort listener does not match the router health response" }
+    }
     else { Write-Warn "health: $($health | ConvertTo-Json -Compress)" }
 } catch {
     Write-Fail "cannot reach the router: $($_.Exception.Message)"

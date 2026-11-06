@@ -110,7 +110,7 @@ try {
     while ($true) {
         # Record a fingerprint of the running files so the launcher can tell
         # when they have changed and a restart is needed.
-        $parts = @($RouterEntry, $RelayConfig, $SyncScript, $WorkbuddyAdapter, $WorkbuddyConfig, $DeepseekConfig)
+        $parts = @(Get-RouterFingerprintParts)
         $hashes = foreach ($part in $parts) {
             if (Test-Path -LiteralPath $part) { (Get-FileHash -Algorithm SHA256 -LiteralPath $part).Hash } else { 'missing' }
         }

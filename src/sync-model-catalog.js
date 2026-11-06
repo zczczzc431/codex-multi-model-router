@@ -128,8 +128,20 @@ const isRouterManaged = (model) =>
   String(model.slug).startsWith('relay-') ||
   String(model.slug).startsWith('wb-');
 
+const currentCodexModels = cache.models.filter((model) => !isRouterManaged(model));
+const publishedSlugs = new Set(currentCodexModels.map((model) => model.slug));
+const omittedCodexModels = catalog.models.filter(
+  (model) => !isRouterManaged(model) && !publishedSlugs.has(model.slug)
+);
+const omittedCodexSlugs = omittedCodexModels.map((model) => model.slug);
+process.stdout.write(
+  omittedCodexSlugs.length
+    ? `Official models omitted from the active menu: ${omittedCodexSlugs.join(', ')}\n`
+    : ''
+);
+
 const mergedModels = [
-  ...cache.models.filter((model) => !isRouterManaged(model)),
+  ...currentCodexModels,
   ...deepSeekSource.map((model) => ({ ...template, ...model })),
   ...relaySource.map((model) => ({ ...template, ...model })),
   ...workbuddySource.map((model) => ({ ...template, ...model })),
@@ -142,7 +154,7 @@ const currentText = fs.existsSync(catalogPath)
   : '';
 
 const summary =
-  `${cache.models.length} Codex + ${deepSeekSource.length} DeepSeek + ` +
+  `${currentCodexModels.length} Codex (${omittedCodexModels.length} omitted) + ${deepSeekSource.length} DeepSeek + ` +
   `${relaySource.length} relay + ${workbuddySource.length} workbuddy models`;
 
 if (currentText !== nextText) {

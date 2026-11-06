@@ -101,7 +101,7 @@ try {
 }
 
 # --- 4. restart the task when needed --------------------------------------
-$parts = @($RouterEntry, $RelayConfig, $SyncScript, $WorkbuddyAdapter, $WorkbuddyConfig, $DeepseekConfig)
+$parts = @(Get-RouterFingerprintParts)
 function Get-RouterFingerprint {
     $hashes = foreach ($part in $parts) {
         if (Test-Path -LiteralPath $part) { (Get-FileHash -Algorithm SHA256 -LiteralPath $part).Hash } else { 'missing' }

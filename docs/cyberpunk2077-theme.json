@@ -3,26 +3,26 @@
   "variant": "dark",
   "codeThemeId": "monokai",
   "theme": {
-    "accent": "#ff4b4b",
+      "accent": "#ff4b4b",
     "accentSource": "custom",
-    "contrast": 68,
+      "contrast": 78,
     "fonts": {
-      "code": "Consolas, 'Cascadia Mono', monospace",
-      "ui": "Bahnschrift, 'Segoe UI', sans-serif"
+      "code": "'Cascadia Mono', Consolas, monospace",
+      "ui": "'Bahnschrift Condensed', Bahnschrift, 'Segoe UI', sans-serif"
     },
-    "ink": "#f5e9e2",
+      "ink": "#f5d6d4",
     "opaqueWindows": true,
     "semanticColors": {
-      "diffAdded": "#28f0c0",
-      "diffRemoved": "#ff4b68",
-      "skill": "#ffd166"
+        "diffAdded": "#36d9d3",
+        "diffRemoved": "#ff4b4b",
+        "skill": "#cbdc52"
     },
-    "surface": "#120d12"
+      "surface": "#120d12"
   },
   "paletteNotes": {
     "coralRed": "#ff4b4b",
-    "signalCyan": "#28f0c0",
-    "warningYellow": "#ffd166",
+    "signalCyan": "#36d9d3",
+    "warningYellow": "#cbdc52",
     "deepSurface": "#120d12"
   }
 }
