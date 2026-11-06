@@ -18,6 +18,8 @@ const deepSeekTimeoutMs = 300000;
 
 const paths = require('./paths');
 const routerLog = paths.routerLog;
+// Fresh installs and isolated test homes may not have a state directory yet.
+fs.mkdirSync(paths.CODEX_HOME, { recursive: true });
 const supervisorPid = process.ppid;
 // The watchdog only needs to run for the real service; unref keeps a
 // library require (tests) from being held open by its timer.
